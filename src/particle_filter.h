@@ -84,7 +84,7 @@ public:
      * @param predicted Vector of predicted landmark observations
      * @param observations Vector of landmark observations
      */
-    vector<int> dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations);
+    std::vector<int> dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations);
 
     /**
      * updateWeights Updates the weights for each particle based on the likelihood of the
@@ -123,6 +123,9 @@ public:
      * standard deviation of y [m] standard deviation of yaw [rad]]
      */
     void updateNoiseGenerators(double *std);
+
+
+    double evaluteMVN(double x, double y, double mu_x, double mu_y, double sigma_x, double sigma_y);
 };
 
 

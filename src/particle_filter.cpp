@@ -29,7 +29,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     n_theta = normal_distribution<double>(0, std[2]);
 
     // Initialize all particles
-    num_particles = 100;
+    num_particles = 250000;
     particles.resize(num_particles);
     weights.resize(num_particles);
     for (int i = 0; i < num_particles; i++) {
@@ -42,6 +42,7 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     }
 
     is_initialized = true;
+    cout << "Finished Init!!!" << endl;
 
 }
 
@@ -116,7 +117,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     t_obs.resize(observations.size());
 
     // Loop over particles
-    for (int i = 0; particles.size(); i++) {
+    for (int i = 0; i < particles.size(); i++) {
 
         // Transform observations to map-coordinates assuming current particle pose
         for (int j = 0; j < t_obs.size(); j++) {
@@ -128,23 +129,36 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
         // Find all landmarks within sensor_range of the current particle
         vector<LandmarkObs> nearby_landmarks;
-        for (int j = 0; map_landmarks.landmark_list.size(); j++) {
+        for (int j = 0; j < map_landmarks.landmark_list.size(); j++) {
             double landmark_dist = dist(particles[i].x, particles[i].y, map_landmarks.landmark_list[j].x_f,
                                         map_landmarks.landmark_list[j].y_f);
+            //cout << landmark_dist << endl;
             if (landmark_dist <= sensor_range) {
                 LandmarkObs nearby_landmark;
                 nearby_landmark.x = map_landmarks.landmark_list[j].x_f;
                 nearby_landmark.y = map_landmarks.landmark_list[j].y_f;
-                nearby_landmarks.push_back(nearby_landmark)
+                nearby_landmarks.push_back(nearby_landmark);
+                //cout << "Pushed!!" << endl;
             }
 
         }
 
+
         // For each transformed observation, find distance to nearest landmark within sensor range.
-        vector<int> nearest_landmark_idx = dataAssociation(nearby_landmarks, observations);
+        vector<int> nearest_landmark_idx = dataAssociation(nearby_landmarks, t_obs);
+
 
         // Compute particle weight by evaluating multivariate gaussian using observations and their nearest landmarks.
+        particles[i].weight = 1;
+        for (int j=0; j < t_obs.size(); j++) {
+            particles[i].weight *= evaluteMVN(t_obs[j].x, t_obs[j].y,
+                                              nearby_landmarks[nearest_landmark_idx[j]].x,
+                                              nearby_landmarks[nearest_landmark_idx[j]].y,
+                                              std_landmark[0], std_landmark[1]);
+        }
 
+        // Update vector of all particle weights
+        weights[i] = particles[i].weight;
     }
 }
 
@@ -152,7 +166,13 @@ void ParticleFilter::resample() {
     // TODO: Resample particles with replacement with probability proportional to their weight.
     // NOTE: You may find std::discrete_distribution helpful here.
     //   http://en.cppreference.com/w/cpp/numeric/random/discrete_distribution
-
+    std::discrete_distribution<int> sampler (weights.begin(), weights.end());
+    vector<Particle> sampled_particles;
+    sampled_particles.resize(particles.size());
+    for (int i = 0; i < num_particles; i++) {
+        sampled_particles[i] = particles[sampler(gen)];
+    }
+    particles.assign(sampled_particles.begin(), sampled_particles.end());
 }
 
 void ParticleFilter::write(std::string filename) {
@@ -169,4 +189,10 @@ void ParticleFilter::updateNoiseGenerators(double *std) {
     n_x.param(normal_distribution<double>::param_type(0, std[0]));
     n_y.param(normal_distribution<double>::param_type(0, std[1]));
     n_theta.param(normal_distribution<double>::param_type(0, std[2]));
+}
+
+double ParticleFilter::evaluteMVN(double x, double y, double mu_x, double mu_y, double sigma_x, double sigma_y) {
+    const double pi = 3.1415926535897;
+    double weight = (1/(2*pi*sigma_x*sigma_y)) * exp(-0.5*( pow(x-mu_x,2)/pow(sigma_x,2) + pow(y-mu_y,2)/pow(sigma_y,2)));
+    return weight;
 }
