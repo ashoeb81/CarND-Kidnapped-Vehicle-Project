@@ -10,6 +10,7 @@
 #include <iostream>
 #include <math.h>
 #include <numeric>
+#include "helper_functions.h"
 
 #include "particle_filter.h"
 
@@ -70,11 +71,29 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
 
 }
 
-void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations) {
+vector<int> ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations) {
     // TODO: Find the predicted measurement that is closest to each observed measurement and assign the
     //   observed measurement to this particular landmark.
     // NOTE: this method will NOT be called by the grading code. But you will probably find it useful to
     //   implement this method and use it as a helper during the updateWeights phase.
+
+    // Vector to hold distance between observation and nearest landmark.
+    vector<int> nearest_landmark_idx;
+    nearest_landmark_idx.resize(observations.size());
+    double distance, min_distance;
+
+    for (int i=0; i < observations.size(); i++) {
+        nearest_landmark_idx[i] = 0;
+        min_distance = dist(observations[i].x, observations[i].y, predicted[0].x, predicted[0].y);
+        for (int j=1; j < predicted.size(); j++) {
+            distance = dist(observations[i].x, observations[i].y, predicted[j].x, predicted[j].y);
+            if (distance < min_distance) {
+                nearest_landmark_idx[i] = j;
+                min_distance = distance;
+            }
+        }
+    }
+    return nearest_landmark_idx;
 
 }
 
@@ -91,6 +110,42 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
     //   3.33. Note that you'll need to switch the minus sign in that equation to a plus to account
     //   for the fact that the map's y-axis actually points downwards.)
     //   http://planning.cs.uiuc.edu/node99.html
+
+    // Vector to hold transformed observations
+    vector<LandmarkObs> t_obs;
+    t_obs.resize(observations.size());
+
+    // Loop over particles
+    for (int i = 0; particles.size(); i++) {
+
+        // Transform observations to map-coordinates assuming current particle pose
+        for (int j = 0; j < t_obs.size(); j++) {
+            t_obs[j].x = observations[j].x * cos(particles[i].theta) - observations[j].y * sin(particles[i].theta) +
+                         particles[i].x;
+            t_obs[j].y = observations[j].x * sin(particles[i].theta) + observations[j].y * cos(particles[i].theta) +
+                         particles[i].y;
+        }
+
+        // Find all landmarks within sensor_range of the current particle
+        vector<LandmarkObs> nearby_landmarks;
+        for (int j = 0; map_landmarks.landmark_list.size(); j++) {
+            double landmark_dist = dist(particles[i].x, particles[i].y, map_landmarks.landmark_list[j].x_f,
+                                        map_landmarks.landmark_list[j].y_f);
+            if (landmark_dist <= sensor_range) {
+                LandmarkObs nearby_landmark;
+                nearby_landmark.x = map_landmarks.landmark_list[j].x_f;
+                nearby_landmark.y = map_landmarks.landmark_list[j].y_f;
+                nearby_landmarks.push_back(nearby_landmark)
+            }
+
+        }
+
+        // For each transformed observation, find distance to nearest landmark within sensor range.
+        vector<int> nearest_landmark_idx = dataAssociation(nearby_landmarks, observations);
+
+        // Compute particle weight by evaluating multivariate gaussian using observations and their nearest landmarks.
+
+    }
 }
 
 void ParticleFilter::resample() {
