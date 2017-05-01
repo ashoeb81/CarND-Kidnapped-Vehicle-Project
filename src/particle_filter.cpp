@@ -12,9 +12,6 @@
 
 using namespace std;
 
-// Constant Pi
-const double PI = 3.14159;
-
 // Random generator or sampling.
 default_random_engine gen;
 
@@ -29,9 +26,9 @@ default_random_engine gen;
 double evaluateMVN(double *x, double *mu, double *sigma) {
     double mvn_value = 1.0;
     for (int i = 0; i < 2; i++) {
-        mvn_value *= (1 / sigma[i]) * exp(-0.5 * pow(x[i] - mu[i], 2) / pow(sigma[i], 2));
+        mvn_value *= (1.0 / sigma[i]) * exp(-0.5 * pow(x[i] - mu[i], 2) / pow(sigma[i], 2));
     }
-    mvn_value *= 1 / (2 * PI);
+    mvn_value *= 1.0 / (2.0 * M_PI);
     return mvn_value;
 }
 
@@ -73,8 +70,8 @@ void ParticleFilter::init(double x, double y, double theta, double std[]) {
     std::normal_distribution<double> n_y (0, std[1]);
     std::normal_distribution<double> n_theta (0, std[2]);
 
-    // Initialize 2500 particles to GPS position with uncertainty and set all particle weights = 1
-    num_particles = 2500;
+    // Initialize 1000 particles to GPS position with uncertainty and set all particle weights = 1
+    num_particles = 1000;
     particles.resize(num_particles);
     weights.resize(num_particles);
     for (int i = 0; i < num_particles; i++) {
@@ -99,19 +96,19 @@ void ParticleFilter::prediction(double delta_t, double std_pos[], double velocit
     // Apply motion model to each particle.
     double theta_orig;
     for (int p = 0; p < particles.size(); p++) {
-        // Update equations for yaw_rate approximately 0.
-        if (yaw_rate < 0.001) {
-            particles[p].x += velocity * delta_t * cos(particles[p].theta) + n_x(gen);
-            particles[p].y += velocity * delta_t * sin(particles[p].theta) + n_y(gen);
-            particles[p].theta += n_theta(gen);
-        }
-            // Update equations for yaw_rate > 0.
-        else {
+        // Update equations for yaw_rate > 0.
+        if (fabs(yaw_rate) > 0.001) {
             theta_orig = particles[p].theta;
             particles[p].theta += yaw_rate * delta_t + n_theta(gen);
             particles[p].x += (velocity / yaw_rate) * (sin(particles[p].theta) - sin(theta_orig)) + n_x(gen);
             particles[p].y += (velocity / yaw_rate) * (cos(theta_orig) - cos(particles[p].theta)) + n_y(gen);
-        };
+        }
+        // Update equations for yaw_rate approximately 0.
+        else {
+            particles[p].x += velocity * delta_t * cos(particles[p].theta) + n_x(gen);
+            particles[p].y += velocity * delta_t * sin(particles[p].theta) + n_y(gen);
+            particles[p].theta += n_theta(gen);
+        }
     }
 
 }
@@ -143,7 +140,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
 
         // Transform observations to map-coordinates assuming current particle pose
         for (int j = 0; j < t_obs.size(); j++) {
-            t_obs[j].x = observations[j].x * cos(particles[i].theta) - observations[j].y * sin(particles[i].theta) +
+            t_obs[j].x = observations[j].x * cos(particles[i].theta)  - observations[j].y * sin(particles[i].theta) +
                          particles[i].x;
             t_obs[j].y = observations[j].x * sin(particles[i].theta) + observations[j].y * cos(particles[i].theta) +
                          particles[i].y;
@@ -155,7 +152,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         for (int j = 0; j < map_landmarks.landmark_list.size(); j++) {
             landmark_dist = dist(particles[i].x, particles[i].y, map_landmarks.landmark_list[j].x_f,
                                  map_landmarks.landmark_list[j].y_f);
-            if (landmark_dist <= sensor_range) {
+            if (landmark_dist < sensor_range) {
                 LandmarkObs nearby_landmark;
                 nearby_landmark.x = map_landmarks.landmark_list[j].x_f;
                 nearby_landmark.y = map_landmarks.landmark_list[j].y_f;
@@ -173,17 +170,16 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
             // Compute particle weight by evaluating multivariate gaussian using each transformed observation
             // and the closest landmark.
             particles[i].weight = 1;
-
             for (int j = 0; j < t_obs.size(); j++) {
                 x[0] = t_obs[j].x;
                 x[1] = t_obs[j].y;
                 mu[0] = nearby_landmarks[nearest_landmark_idx[j]].x;
                 mu[1] = nearby_landmarks[nearest_landmark_idx[j]].y;
-                particles[i].weight *= evaluateMVN(x, mu, std_landmark);
+                particles[i].weight *= evaluateMVN(x, mu, std_landmark);;
             }
             weights[i] = particles[i].weight;
         } else {
-            particles[i].weight = 0;
+            particles[i].weight = 0.0;
             weights[i] = particles[i].weight;
         }
     }
