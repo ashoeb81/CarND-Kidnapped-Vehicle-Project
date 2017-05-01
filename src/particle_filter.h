@@ -26,23 +26,12 @@ class ParticleFilter {
     // Number of particles to draw
     int num_particles;
 
+
     // Flag, if filter is initialized
     bool is_initialized;
 
     // Vector of weights of all particles
     std::vector<double> weights;
-
-    // Noise distribution in x
-    std::normal_distribution<double> n_x;
-
-    // Noise distribution in y
-    std::normal_distribution<double> n_y;
-
-    // Noise distribution in theta
-    std::normal_distribution<double> n_theta;
-
-    // random generator
-    std::default_random_engine gen;
 
 public:
 
@@ -83,9 +72,8 @@ public:
      *   a nearest-neighbors data association).
      * @param predicted Vector of predicted landmark observations
      * @param observations Vector of landmark observations
-     * @return Vector with index of landmark in predicted closest to each observation in observations.
      */
-    std::vector<int> dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations);
+    void dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations);
 
     /**
      * updateWeights Updates the weights for each particle based on the likelihood of the
@@ -112,29 +100,11 @@ public:
     void write(std::string filename);
 
     /**
-     * initialized
-     * Returns whether particle filter is initialized yet or not.
+     * initialized Returns whether particle filter is initialized yet or not.
      */
     const bool initialized() const {
         return is_initialized;
     }
-
-    /**
-     * Updates noise generator with new sigma values
-     * @param std Pointer to an array of dimension 3 [standard deviation of x [m],
-     * standard deviation of y [m] standard deviation of yaw [rad]]
-     */
-    void updateNoiseGenerators(double *std);
-
-
-    /**
-     * Evaluates 2D Multivariate Gaussian Distribution (MVN).
-     * @param x Pointer to array corresponding to 2D point at which to evaluate MVN.
-     * @param mu Pointer to array corresponding to 2D mean of MVN.
-     * @param sigma Pointer to array corresponding to diagonal covariance matrix of MVN.
-     * @return double corresponding to evaluationg MVN at argument x.
-     */
-    double evaluteMVN(double* x, double* mu, double* sigma);
 };
 
 

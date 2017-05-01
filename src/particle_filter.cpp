@@ -12,58 +12,37 @@
 
 using namespace std;
 
+// Constant Pi
 const double PI = 3.14159;
 
-void ParticleFilter::init(double x, double y, double theta, double std[]) {
-    // Initialize noise generators for x, y, and theta.
-    gen = default_random_engine();
-    n_x = normal_distribution<double>(0, std[0]);
-    n_y = normal_distribution<double>(0, std[1]);
-    n_theta = normal_distribution<double>(0, std[2]);
+// Random generator or sampling.
+default_random_engine gen;
 
-    // Initialize 2000 particles to GPS position with uncertainty and set all particle weights = 1
-    num_particles = 2000;
-    particles.resize(num_particles);
-    weights.resize(num_particles);
-    for (int i = 0; i < num_particles; i++) {
-        particles[i].id = i;
-        particles[i].x = x + n_x(gen);
-        particles[i].y = y + n_y(gen);
-        particles[i].theta = theta + n_theta(gen);
-        particles[i].weight = 1;
-        weights[i] = 1;
+
+/**
+ * Evaluates 2D Multivariate Gaussian Distribution (MVN).
+ * @param x Pointer to array corresponding to 2D point at which to evaluate MVN.
+ * @param mu Pointer to array corresponding to 2D mean of MVN.
+ * @param sigma Pointer to array corresponding to diagonal covariance matrix of MVN.
+ * @return double corresponding to evaluationg MVN at argument x.
+ */
+double evaluateMVN(double *x, double *mu, double *sigma) {
+    double mvn_value = 1.0;
+    for (int i = 0; i < 2; i++) {
+        mvn_value *= (1 / sigma[i]) * exp(-0.5 * pow(x[i] - mu[i], 2) / pow(sigma[i], 2));
     }
-
-    // Declare filter as being initialized.
-    is_initialized = true;
+    mvn_value *= 1 / (2 * PI);
+    return mvn_value;
 }
 
-void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
-    // Reset noise generators to supplied in noise sigma in argument std_pos.
-    updateNoiseGenerators(std_pos);
-
-    // Apply motion model to each particle.
-    double theta_orig;
-    for (int p = 0; p < particles.size(); p++) {
-        // Update equations for yaw_rate approximately 0.
-        if (yaw_rate < 0.001) {
-            particles[p].x += velocity * delta_t * cos(particles[p].theta) + n_x(gen);
-            particles[p].y += velocity * delta_t * sin(particles[p].theta) + n_y(gen);
-            particles[p].theta += n_theta(gen);
-        }
-            // Update equations for yaw_rate > 0.
-        else {
-            theta_orig = particles[p].theta;
-            particles[p].theta += yaw_rate * delta_t + n_theta(gen);
-            particles[p].x += (velocity / yaw_rate) * (sin(particles[p].theta) - sin(theta_orig)) + n_x(gen);
-            particles[p].y += (velocity / yaw_rate) * (cos(theta_orig) - cos(particles[p].theta)) + n_y(gen);
-        };
-    }
-
-}
-
-vector<int> ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
-                                            std::vector<LandmarkObs> &observations) {
+/**
+ * nearestLandmark Finds index of landmark nearest each observation.
+ * @param predicted Vector of predicted landmark observations
+ * @param observations Vector of landmark observations
+ * @return Vector index of landmark in predicted closest to each observation in observations.
+ */
+vector<int> nearestLandmark(std::vector<LandmarkObs> predicted,
+                            std::vector<LandmarkObs> &observations) {
 
     // Vector to hold index of landmark in predicted that is closest to each observation.
     vector<int> nearest_landmark_idx;
@@ -86,6 +65,65 @@ vector<int> ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted,
         }
     }
     return nearest_landmark_idx;
+}
+
+void ParticleFilter::init(double x, double y, double theta, double std[]) {
+    // Initialize noise generators for x, y, and theta.
+    std::normal_distribution<double> n_x (0, std[0]);
+    std::normal_distribution<double> n_y (0, std[1]);
+    std::normal_distribution<double> n_theta (0, std[2]);
+
+    // Initialize 2500 particles to GPS position with uncertainty and set all particle weights = 1
+    num_particles = 2500;
+    particles.resize(num_particles);
+    weights.resize(num_particles);
+    for (int i = 0; i < num_particles; i++) {
+        particles[i].id = i;
+        particles[i].x = x + n_x(gen);
+        particles[i].y = y + n_y(gen);
+        particles[i].theta = theta + n_theta(gen);
+        particles[i].weight = 1;
+        weights[i] = 1;
+    }
+
+    // Declare filter as being initialized.
+    is_initialized = true;
+}
+
+void ParticleFilter::prediction(double delta_t, double std_pos[], double velocity, double yaw_rate) {
+    // Reset noise generators to supplied in noise sigma in argument std_pos.
+    std::normal_distribution<double> n_x (0, std_pos[0]);
+    std::normal_distribution<double> n_y (0, std_pos[1]);
+    std::normal_distribution<double> n_theta (0, std_pos[2]);
+
+    // Apply motion model to each particle.
+    double theta_orig;
+    for (int p = 0; p < particles.size(); p++) {
+        // Update equations for yaw_rate approximately 0.
+        if (yaw_rate < 0.001) {
+            particles[p].x += velocity * delta_t * cos(particles[p].theta) + n_x(gen);
+            particles[p].y += velocity * delta_t * sin(particles[p].theta) + n_y(gen);
+            particles[p].theta += n_theta(gen);
+        }
+            // Update equations for yaw_rate > 0.
+        else {
+            theta_orig = particles[p].theta;
+            particles[p].theta += yaw_rate * delta_t + n_theta(gen);
+            particles[p].x += (velocity / yaw_rate) * (sin(particles[p].theta) - sin(theta_orig)) + n_x(gen);
+            particles[p].y += (velocity / yaw_rate) * (cos(theta_orig) - cos(particles[p].theta)) + n_y(gen);
+        };
+    }
+
+}
+
+void ParticleFilter::dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs>& observations) {
+    // TODO: Find the predicted measurement that is closest to each observed measurement and assign the
+    //   observed measurement to this particular landmark.
+
+    // NOTE: this method will NOT be called by the grading code. But you will probably find it useful to
+    //   implement this method and use it as a helper during the updateWeights phase.
+
+    // NOTE: I used the method nearestLandmark (declared above) to perform data association.
 
 }
 
@@ -130,7 +168,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
         if (nearby_landmarks.size() > 0) {
 
             // For each transformed observation, find distance to nearest landmark within sensor range.
-            vector<int> nearest_landmark_idx = dataAssociation(nearby_landmarks, t_obs);
+            vector<int> nearest_landmark_idx = nearestLandmark(nearby_landmarks, t_obs);
 
             // Compute particle weight by evaluating multivariate gaussian using each transformed observation
             // and the closest landmark.
@@ -141,7 +179,7 @@ void ParticleFilter::updateWeights(double sensor_range, double std_landmark[],
                 x[1] = t_obs[j].y;
                 mu[0] = nearby_landmarks[nearest_landmark_idx[j]].x;
                 mu[1] = nearby_landmarks[nearest_landmark_idx[j]].y;
-                particles[i].weight *= evaluteMVN(x, mu, std_landmark);
+                particles[i].weight *= evaluateMVN(x, mu, std_landmark);
             }
             weights[i] = particles[i].weight;
         } else {
@@ -172,19 +210,4 @@ void ParticleFilter::write(std::string filename) {
         dataFile << particles[i].x << " " << particles[i].y << " " << particles[i].theta << "\n";
     }
     dataFile.close();
-}
-
-void ParticleFilter::updateNoiseGenerators(double *std) {
-    n_x.param(normal_distribution<double>::param_type(0, std[0]));
-    n_y.param(normal_distribution<double>::param_type(0, std[1]));
-    n_theta.param(normal_distribution<double>::param_type(0, std[2]));
-}
-
-double ParticleFilter::evaluteMVN(double *x, double *mu, double *sigma) {
-    double mvn_value = 1.0;
-    for (int i = 0; i < 2; i++) {
-        mvn_value *= (1 / sigma[i]) * exp(-0.5 * pow(x[i] - mu[i], 2) / pow(sigma[i], 2));
-    }
-    mvn_value *= 1 / (2 * PI);
-    return mvn_value;
 }
