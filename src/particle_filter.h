@@ -83,6 +83,7 @@ public:
      *   a nearest-neighbors data association).
      * @param predicted Vector of predicted landmark observations
      * @param observations Vector of landmark observations
+     * @return Vector with index of landmark in predicted closest to each observation in observations.
      */
     std::vector<int> dataAssociation(std::vector<LandmarkObs> predicted, std::vector<LandmarkObs> &observations);
 
@@ -111,7 +112,8 @@ public:
     void write(std::string filename);
 
     /**
-     * initialized Returns whether particle filter is initialized yet or not.
+     * initialized
+     * Returns whether particle filter is initialized yet or not.
      */
     const bool initialized() const {
         return is_initialized;
@@ -125,7 +127,14 @@ public:
     void updateNoiseGenerators(double *std);
 
 
-    double evaluteMVN(double x, double y, double mu_x, double mu_y, double sigma_x, double sigma_y);
+    /**
+     * Evaluates 2D Multivariate Gaussian Distribution (MVN).
+     * @param x Pointer to array corresponding to 2D point at which to evaluate MVN.
+     * @param mu Pointer to array corresponding to 2D mean of MVN.
+     * @param sigma Pointer to array corresponding to diagonal covariance matrix of MVN.
+     * @return double corresponding to evaluationg MVN at argument x.
+     */
+    double evaluteMVN(double* x, double* mu, double* sigma);
 };
 
 
